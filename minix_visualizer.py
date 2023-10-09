@@ -52,6 +52,14 @@ EVENTS = {
 
 def print_usage():
     print("Usage: python minix_visualizer.py <filename> [-v|-vv]")
+    print("  -v: verbose")
+    print("  -vv: very verbose")
+    print("\nExample: python minix_visualizer.py log_e9.log -v")
+    print(
+        "\nThis program analyzes a minix log file, showing a summary of the keys pressed. "
+        "If the-v option is used, it also shows every MAKEKBD event. "
+        "If the -vv option is used, it shows every event."
+    )
     sys.exit()
 
 
