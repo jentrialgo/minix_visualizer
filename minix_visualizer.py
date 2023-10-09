@@ -1,3 +1,6 @@
+import sys
+
+
 EVENTS = {
     0: {"event": "opIRQ_00", "parameters": 0, "name": "CLOCK_IRQ"},
     1: {"event": "opIRQ_01", "parameters": 0, "name": "KEYBOARD_IRQ"},
@@ -46,7 +49,13 @@ EVENTS = {
     44: {"event": "opIDE", "parameters": 4 * 4},
 }
 
-with open("log_e9.bin", "rb") as f:
+if len(sys.argv) < 2:
+    print("Please provide a file name as a parameter.")
+    exit()
+
+filename = sys.argv[1]
+
+with open(filename, "rb") as f:
     tick = 0
     keys_pressed = ""
     while True:
@@ -56,13 +65,15 @@ with open("log_e9.bin", "rb") as f:
         event = EVENTS.get(ord(byte))
         if event:
             if event["event"] == "opIRQ_00":
-                print("\n*****************************")
+                print(
+                    f"\n*****************************| tick {tick} |*****************************\n"
+                )
                 tick += 1
 
             if "name" in event:
-                print(tick, event["event"], event["name"])
+                print(event["event"], event["name"])
             else:
-                print(tick, event["event"])
+                print(event["event"])
 
             if event["event"] == "opMAPKBD":
                 parameters = f.read(event["parameters"])
@@ -92,5 +103,5 @@ with open("log_e9.bin", "rb") as f:
             else:
                 f.read(event["parameters"])  # skip parameters
 
-    print("Keys pressed:")
-    print(keys_pressed)
+print("\n--- Keys pressed: ---\n")
+print(keys_pressed)
