@@ -1,4 +1,8 @@
+"""This program analyzes a minix log file obtained using the Hacking the Minix Kernel
+project, which can be found at https://oa.upm.es/68152/"""
+
 import sys
+import io
 
 
 EVENTS = {
@@ -63,6 +67,66 @@ def print_usage():
     sys.exit()
 
 
+def analyze_log_file(log_file: io.IOBase, verbose_level: int) -> None:
+    tick = 0
+    keys_pressed = ""
+    while True:
+        byte = log_file.read(1)
+        if not byte:
+            break
+        event = EVENTS.get(ord(byte))
+        if event:
+            if event["event"] == "opIRQ_00":
+                if verbose_level == 2:
+                    print(
+                        f"\n*****************************| tick {tick} |*****************************\n"
+                    )
+                tick += 1
+
+            if verbose_level == 2:
+                if "name" in event:
+                    print(event["event"], event["name"])
+                else:
+                    print(event["event"])
+
+            if event["event"] == "opMAPKBD":
+                parameters = log_file.read(event["parameters"])
+                scan = parameters[0]
+                asc_code = parameters[1]
+                asc_ch = chr(asc_code) if asc_code > 30 else "-"
+
+                # For the enter key (0x1c), there is a 2 byte code corresponding to the
+                # clock counter, i.e., how many ticks are left until the next clock
+                # interrupt.
+                if scan == 28:
+                    asc_ch = "ENTER"
+                    cc = parameters[2] << 8 | parameters[3]
+                    cc_msg = f" cc: {cc} "
+                else:
+                    cc = "-"
+                    cc_msg = ""
+
+                # Detect if it is a key press or release by checking the 7th bit
+                is_press = scan & 0x80 == 0
+                is_press_str = "press" if is_press else "release"
+
+                if is_press and asc_ch != "-":
+                    if asc_ch == "ENTER":
+                        keys_pressed += "\n"
+                    else:
+                        keys_pressed += asc_ch
+
+                if verbose_level > 0:
+                    print(
+                        f" scan code: {scan:2x} ascii: {asc_code:3} char: {asc_ch}{cc_msg} [{is_press_str}]"
+                    )
+            else:
+                log_file.read(event["parameters"])  # skip parameters
+
+    print("\n--- Keys pressed: ---\n")
+    print(keys_pressed)
+
+
 def main():
     if len(sys.argv) < 2:
         print_usage()
@@ -78,64 +142,8 @@ def main():
         else:
             print_usage()
 
-    with open(filename, "rb") as f:
-        tick = 0
-        keys_pressed = ""
-        while True:
-            byte = f.read(1)
-            if not byte:
-                break
-            event = EVENTS.get(ord(byte))
-            if event:
-                if event["event"] == "opIRQ_00":
-                    if verbose_level == 2:
-                        print(
-                            f"\n*****************************| tick {tick} |*****************************\n"
-                        )
-                    tick += 1
-
-                if verbose_level == 2:
-                    if "name" in event:
-                        print(event["event"], event["name"])
-                    else:
-                        print(event["event"])
-
-                if event["event"] == "opMAPKBD":
-                    parameters = f.read(event["parameters"])
-                    scan = parameters[0]
-                    asc_code = parameters[1]
-                    asc_ch = chr(asc_code) if asc_code > 30 else "-"
-
-                    # For the enter key (0x1c), there is a 2 byte code corresponding to the
-                    # clock counter, i.e., how many ticks are left until the next clock
-                    # interrupt.
-                    if scan == 28:
-                        asc_ch = "ENTER"
-                        cc = parameters[2] << 8 | parameters[3]
-                        cc_msg = f" cc: {cc} "
-                    else:
-                        cc = "-"
-                        cc_msg = ""
-
-                    # Detect if it is a key press or release by checking the 7th bit
-                    is_press = scan & 0x80 == 0
-                    is_press_str = "press" if is_press else "release"
-
-                    if is_press and asc_ch != "-":
-                        if asc_ch == "ENTER":
-                            keys_pressed += "\n"
-                        else:
-                            keys_pressed += asc_ch
-
-                    if verbose_level > 0:
-                        print(
-                            f" scan code: {scan:2x} ascii: {asc_code:3} char: {asc_ch}{cc_msg} [{is_press_str}]"
-                        )
-                else:
-                    f.read(event["parameters"])  # skip parameters
-
-    print("\n--- Keys pressed: ---\n")
-    print(keys_pressed)
+    with open(filename, "rb") as log_file:
+        analyze_log_file(log_file, verbose_level)
 
 
 if __name__ == "__main__":
