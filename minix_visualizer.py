@@ -49,11 +49,26 @@ EVENTS = {
     44: {"event": "opIDE", "parameters": 4 * 4},
 }
 
+
+def print_usage():
+    print("Usage: python minix_visualizer.py <filename> [-v|-vv]")
+    sys.exit()
+
+
 if len(sys.argv) < 2:
-    print("Please provide a file name as a parameter.")
-    exit()
+    print_usage()
 
 filename = sys.argv[1]
+
+verbose_level = 0
+if len(sys.argv) > 2:
+    if sys.argv[2] == "-v":
+        verbose_level = 1
+    elif sys.argv[2] == "-vv":
+        verbose_level = 2
+    else:
+        print_usage()
+
 
 with open(filename, "rb") as f:
     tick = 0
@@ -65,15 +80,17 @@ with open(filename, "rb") as f:
         event = EVENTS.get(ord(byte))
         if event:
             if event["event"] == "opIRQ_00":
-                print(
-                    f"\n*****************************| tick {tick} |*****************************\n"
-                )
+                if verbose_level == 2:
+                    print(
+                        f"\n*****************************| tick {tick} |*****************************\n"
+                    )
                 tick += 1
 
-            if "name" in event:
-                print(event["event"], event["name"])
-            else:
-                print(event["event"])
+            if verbose_level == 2:
+                if "name" in event:
+                    print(event["event"], event["name"])
+                else:
+                    print(event["event"])
 
             if event["event"] == "opMAPKBD":
                 parameters = f.read(event["parameters"])
@@ -85,7 +102,7 @@ with open(filename, "rb") as f:
                 # clock counter, i.e., how many ticks are left until the next clock
                 # interrupt.
                 if scan == 28:
-                    asc_ch = "\n"
+                    asc_ch = "ENTER"
                     cc = parameters[2] << 8 | parameters[3]
                 else:
                     cc = "-"
@@ -95,11 +112,15 @@ with open(filename, "rb") as f:
                 is_press_str = "press" if is_press else "release"
 
                 if is_press and asc_ch != "-":
-                    keys_pressed += asc_ch
+                    if asc_ch == "ENTER":
+                        keys_pressed += "\n"
+                    else:
+                        keys_pressed += asc_ch
 
-                print(
-                    f" scan code: {scan:2x} ascii: {asc_code:3} char: {asc_ch} cc: {cc} [{is_press_str}]"
-                )
+                if verbose_level > 0:
+                    print(
+                        f" scan code: {scan:2x} ascii: {asc_code:3} char: {asc_ch} cc: {cc} [{is_press_str}]"
+                    )
             else:
                 f.read(event["parameters"])  # skip parameters
 
